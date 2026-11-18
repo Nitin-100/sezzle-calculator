@@ -2,7 +2,7 @@
 # is per target platform, so multi-arch builds do not need emulation.
 
 # Build the React frontend. The output is static files, the same for every platform.
-FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:26-alpine AS frontend
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
