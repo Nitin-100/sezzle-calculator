@@ -90,7 +90,7 @@ Open http://localhost:8080. The Go server serves the API and the built frontend 
 
 ### Option 2: Run frontend and backend separately
 
-Requirements: Go 1.27 or newer, Node.js 22 or newer. CI, Docker and local development all use the same Go version, and CI and Docker use Node 24 LTS.
+Requirements: Go 1.27 or newer, Node.js 22 or newer. CI and the Docker image both build with the latest Go 1.27 patch release, and use Node 24 LTS.
 
 Backend (port 8080):
 
@@ -431,7 +431,7 @@ The full Content Security Policy is `default-src 'self'; base-uri 'none'; form-a
 - **Pinned actions:** every GitHub Action is pinned to a full commit SHA, so a moved tag cannot change the pipeline.
 - **Least privilege tokens:** workflows default to `contents: read`. Only the release publish job gets `packages: write` and `contents: write`. No other secrets are used.
 - **Traceable releases:** release images carry an SBOM and build provenance, and each image tag maps to one commit.
-- **Updates:** Dependabot opens weekly pull requests for Go, npm, Docker base images and Actions.
+- **Updates:** Dependabot opens weekly pull requests with minor and patch updates for Go, npm, Docker base images and Actions. Major upgrades are done by hand.
 
 ### Checks run on this codebase
 
@@ -631,7 +631,7 @@ The [release workflow](.github/workflows/release.yml) then reruns CI on the tagg
 
 **Deploying and rolling back.** Image tags are immutable, so a deploy points at an exact version and a rollback is a redeploy of the previous tag. No other step is needed: the service holds no state and runs no migrations. The frontend and backend ship in the same image, so they can never be out of step. History in the browser uses a versioned key, so a new release can change the format without breaking old data. Readiness checks and connection draining let a rolling update replace replicas without dropping requests. Watch the 5xx rate and p99 latency during a rollout, and roll back if they move.
 
-**Dependencies.** Dependabot opens weekly pull requests for Go modules, npm packages, Docker base images and GitHub Actions, grouped so they are quick to review. Every update goes through the same CI gates. GitHub Actions are pinned to commit SHAs, so a moved tag cannot change what runs in the pipeline.
+**Dependencies.** Dependabot opens weekly pull requests with minor and patch updates for Go modules, npm packages, Docker base images and GitHub Actions, grouped so they are quick to review. Major versions can break things, so they are upgraded deliberately by a person; security updates still arrive for any version. Every update goes through the same CI gates. GitHub Actions are pinned to commit SHAs, so a moved tag cannot change what runs in the pipeline. The Go toolchain tracks the latest 1.27 patch in CI and Docker, so standard library security fixes need no change.
 
 **Repository settings to turn on** (they live in GitHub, not in code): protect `main`, require pull requests and passing CI checks before merging, and allow only maintainers to push `v*` tags.
 

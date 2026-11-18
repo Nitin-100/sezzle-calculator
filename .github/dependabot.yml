@@ -1,12 +1,17 @@
 version: 2
 
-# Weekly dependency updates. Minor and patch updates are grouped into one pull
-# request per ecosystem so they are cheap to review; major updates come alone.
+# Weekly minor and patch updates, grouped into one pull request per ecosystem
+# so they are cheap to review. Major versions can contain breaking changes, so
+# they are upgraded deliberately by a person rather than by a bot. Security
+# updates are separate and still arrive for any version.
 updates:
   - package-ecosystem: gomod
     directory: /backend
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       go-minor-and-patch:
         update-types: [minor, patch]
@@ -15,6 +20,9 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
@@ -23,6 +31,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /

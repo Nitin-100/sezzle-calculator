@@ -10,7 +10,7 @@ Below are the prompts that drove each iteration (edited for clarity), along with
 
 ## 1. Clean full-stack foundation with strict domain boundaries
 
-> Build a full-stack calculator with a React + TypeScript frontend and a Go REST microservice backend. Every arithmetic operation must be evaluated by the backend API—the frontend must not compute math locally.
+> Build a full-stack calculator with a React + TypeScript frontend and a Go REST microservice backend. Every arithmetic operation must be evaluated by the backend API; the frontend must not compute math locally.
 >
 > Requirements:
 > - Operations: `add`, `subtract`, `multiply`, `divide`, plus `power`, `sqrt`, and `percentage`.
@@ -49,7 +49,7 @@ Below are the prompts that drove each iteration (edited for clarity), along with
 
 ## 3. Production operability: observability, resilience, and horizontal scale
 
-> Harden the service for production operations—observability, graceful failure handling, and horizontal scaling—without adding stateful complexity:
+> Harden the service for production operations (observability, graceful failure handling, and horizontal scaling) without adding stateful complexity:
 > - Observability: structured JSON request logs (`log/slog`) correlated via `X-Request-ID`, Prometheus metrics at `/metrics` with bounded label cardinality, and quiet `debug`-level logging for health and metrics probes.
 > - Failure handling and zero-downtime deploys: separate `/healthz` (liveness) and `/readyz` (readiness) endpoints, `SIGTERM` readiness draining before closing listeners, a built-in `-healthcheck` flag for distroless Docker, panic recovery that logs stack traces with the request ID, HTTP server timeouts, and a 5-second browser timeout with a single retry on transient network or `502`/`503`/`504` gateway errors.
 > - Scaling and caching: keep replicas stateless, benchmark per-request overhead, configure immutable cache headers for hashed `/assets/*` files alongside `no-cache` for `index.html` and `no-store` for API responses, and document gateway responsibilities (TLS, rate limiting, restricting `/metrics`).
@@ -68,7 +68,7 @@ Below are the prompts that drove each iteration (edited for clarity), along with
 
 **What I was aiming for and what changed:**
 
-- **Pragmatic dependency inversion:** The HTTP layer now depends on a narrow two-method `Calculator` interface wired by `main`, enabling a deterministic test with a failing double to prove unexpected `500` errors are logged with `request_id` and never leaked to clients. On the frontend, `App` accepts `calculate` and `historyStore` props for clean test injection—stopping there rather than adding ceremonial DI containers or extra layers.
+- **Pragmatic dependency inversion:** The HTTP layer now depends on a narrow two-method `Calculator` interface wired by `main`, enabling a deterministic test with a failing double to prove unexpected `500` errors are logged with `request_id` and never leaked to clients. On the frontend, `App` accepts `calculate` and `historyStore` props for clean test injection, stopping there rather than adding ceremonial DI containers or extra layers.
 - **Traceable builds and SemVer releases:** Compiled `version` and `commit` into the Go binary via `-ldflags` (surfaced in `/healthz`, startup logs, and `calculator_build_info`). Added `CHANGELOG.md` and a tag-driven `release.yml` workflow that reruns CI, verifies changelog notes exist, cross-compiles `linux/amd64` and `linux/arm64` distroless images without QEMU emulation, attaches SBOM + provenance attestations, and publishes to GHCR and GitHub Releases.
 - **Hardened CI & current runtimes:** Upgraded Node to `24 LTS`, pinned all GitHub Actions to full commit SHAs with Dependabot updates, enforced coverage gates (`>= 90%` backend `internal`, `>= 95%` statements/lines frontend), added `golangci-lint`, `govulncheck`, `npm audit`, container smoke tests, Trivy image scanning, and a linted OpenAPI 3.1 specification (`docs/openapi.yaml`).
 
@@ -81,7 +81,7 @@ Below are the prompts that drove each iteration (edited for clarity), along with
 **What I was aiming for and what changed:**
 
 - **Privacy-preserving browser history:** Selected `localStorage` behind a three-method `HistoryStore` interface (rejecting device fingerprinting for privacy/reliability reasons and documenting how cookie-backed server storage would plug into `HistoryStore` if ever needed). Handled corrupted JSON, schema validation, a 50-entry cap, cross-tab `storage` events, and fallback to in-memory history when storage is blocked or full.
-- **Measured Go optimization (`pprof` + `hey`):** Replaced `httptest.ResponseRecorder` in benchmarks so profiling measured the handler rather than test scaffolding. Prebuilt constant header slices, `slog.LogAttrs`, and a fast path for `Content-Type: application/json` cut allocations from 35 to 23 per request (~36,200 req/s, p99 3.7 ms, zero errors, flat 18–22 MB RSS under 50-client load).
+- **Measured Go optimization (`pprof` + `hey`):** Replaced `httptest.ResponseRecorder` in benchmarks so profiling measured the handler rather than test scaffolding. Prebuilt constant header slices, `slog.LogAttrs`, and a fast path for `Content-Type: application/json` cut allocations from 35 to 23 per request (~36,200 req/s, p99 3.7 ms, zero errors, flat 18 to 22 MB RSS under 50-client load).
 - **Bugs caught and fixed with regression tests:**
   - `7% of 300` returned `21.000000000000004` -> fixed by computing `(a * b) / 100` first with `(a / 100) * b` fallback on overflow.
   - `1 / 3 x 3` gave `0.999999999999999` -> fixed by retaining full-precision `exact` alongside the 15-digit formatted display string.
@@ -106,6 +106,17 @@ Below are the prompts that drove each iteration (edited for clarity), along with
 - **Dotfile exposure in static serving:** Hardened `noListingFS` to return `404` for any dotfile path (such as `/.env` or `/.git/config`) if one ever landed in the static directory.
 - **Explicit config diagnostics & version alignment:** Logged a structured startup warning when `LOG_LEVEL` is invalid instead of falling back silently, aligned `go.mod` (`1.27.0`), CI, and `Dockerfile` on Go 1.27, and consolidated `CHANGELOG.md` cleanly under `1.0.0`.
 - **Security tooling, CSP, and runtime hardening:** Enabled `gosec` inside `.golangci.yml` (fixing test-file permissions it flagged), tightened CSP to `default-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'`, verified the image runs cleanly with `--read-only --cap-drop ALL --security-opt no-new-privileges`, and added a threat-to-mitigation table in `README.md`.
+
+---
+
+## 7. Publishing and acting on the first CI run
+
+> Push the code to GitHub.
+
+The first CI run on GitHub failed, which was the pipeline doing its job:
+
+- **`govulncheck` flagged seven known Go standard library vulnerabilities.** CI installed exactly Go 1.27.0 from `go.mod`, while local development used 1.27.4, which already had the fixes. CI now tracks the latest 1.27 patch release, the same as the `golang:1.27-alpine` Docker base image, so standard library security fixes arrive without a code change.
+- **Dependabot opened six pull requests within a minute of the repository being created,** five of them major-version upgrades (such as vitest 3 to 5 and Node 24 to 26), and all failed CI. Major upgrades can carry breaking changes and deserve a deliberate review, so Dependabot is now limited to grouped minor and patch updates, with security updates still arriving for any version. The six pull requests were closed.
 
 ---
 
