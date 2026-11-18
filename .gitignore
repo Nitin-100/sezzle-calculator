@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.out
+coverage.html
+.env
+.env.*
+.DS_Store
+.vscode/
+.idea/
+*.test
+*.test.exe
+*.prof

@@ -1,0 +1,175 @@
+openapi: 3.1.0
+info:
+  title: Calculator API
+  version: 1.0.0
+  description: |
+    Arithmetic operations over HTTP. Every operation is a POST with a JSON body.
+    Errors always use the Error schema, with a stable `code` for programs and a
+    readable `message` for people.
+servers:
+  - url: http://localhost:8080
+# The API is intentionally public. Authentication and rate limiting belong to
+# the gateway in front of it.
+security: []
+paths:
+  /api/v1/{operation}:
+    post:
+      summary: Run a calculation
+      operationId: calculate
+      parameters:
+        - name: operation
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [add, subtract, multiply, divide, power, sqrt, percentage]
+          description: |
+            `sqrt` takes only `a`. `percentage` returns a percent of b, so
+            a = 15 and b = 200 gives 30. All other operations take `a` and `b`.
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculationRequest'
+            examples:
+              binary:
+                value: { a: 12, b: 4 }
+              sqrt:
+                value: { a: 81 }
+      responses:
+        '200':
+          description: Result of the calculation
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculationResult'
+              example: { operation: divide, a: 12, b: 4, result: 3 }
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '405':
+          $ref: '#/components/responses/Error'
+        '413':
+          $ref: '#/components/responses/Error'
+        '415':
+          $ref: '#/components/responses/Error'
+        '422':
+          description: The input is valid but the math has no real, finite answer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: { code: division_by_zero, message: Division by zero is not allowed }
+        '500':
+          $ref: '#/components/responses/Error'
+  /healthz:
+    get:
+      summary: Liveness check
+      operationId: health
+      responses:
+        '200':
+          description: The process is running
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { type: string, const: ok }
+                  version: { type: string, examples: ['v1.0.0'] }
+  /readyz:
+    get:
+      summary: Readiness check
+      operationId: ready
+      responses:
+        '200':
+          description: Ready to receive traffic
+        '503':
+          $ref: '#/components/responses/Error'
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: metrics
+      responses:
+        '200':
+          description: Metrics in the Prometheus text format
+          content:
+            text/plain: {}
+components:
+  parameters:
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      description: Optional ID to correlate logs. Up to 64 characters from A-Z, a-z, 0-9, dash, underscore and dot. Otherwise one is generated.
+      schema:
+        type: string
+        maxLength: 64
+        pattern: '^[A-Za-z0-9._-]+$'
+  headers:
+    RequestId:
+      description: The request ID used in the server logs
+      schema:
+        type: string
+  schemas:
+    CalculationRequest:
+      type: object
+      required: [a]
+      additionalProperties: false
+      properties:
+        a:
+          type: number
+        b:
+          type: number
+          description: Required for every operation except sqrt, and rejected for sqrt.
+    CalculationResult:
+      type: object
+      required: [operation, a, result]
+      properties:
+        operation:
+          type: string
+        a:
+          type: number
+        b:
+          type: number
+        result:
+          type: number
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - invalid_request
+                - unknown_operation
+                - not_found
+                - method_not_allowed
+                - request_too_large
+                - unsupported_media_type
+                - division_by_zero
+                - negative_square_root
+                - undefined_result
+                - result_out_of_range
+                - not_ready
+                - internal_error
+            message:
+              type: string
+  responses:
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

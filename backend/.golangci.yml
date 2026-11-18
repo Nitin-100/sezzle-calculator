@@ -1,0 +1,6 @@
+version: "2"
+
+linters:
+  # Default linters plus gosec for security checks.
+  enable:
+    - gosec
